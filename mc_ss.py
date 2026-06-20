@@ -218,6 +218,7 @@ def scan_jar(path, silent=False):
     try:
         zf2 = zipfile.ZipFile(path,'r')
         all_strs = set()
+        all_class_names = set()
         for entry in zf2.namelist():
             if entry.endswith('.class'):
                 try:
@@ -226,11 +227,16 @@ def scan_jar(path, silent=False):
                     if info:
                         for s in info['strings']:
                             all_strs.add(s.lower())
+                        if info['name']:
+                            all_class_names.add(info['name'].lower())
                 except: pass
         zf2.close()
+        # Check string patterns
+        joined = ' '.join(all_strs)
         for pattern, desc in BYPASS_PATTERNS.items():
-            if pattern.lower() in all_strs:
+            if pattern.lower() in joined:
                 bypass_hits.append(desc)
+
     except: pass
     bypass_hits = list(dict.fromkeys(bypass_hits))
     
@@ -241,7 +247,7 @@ def scan_jar(path, silent=False):
 
 # Map keyword -> clean label
 KW_LABELS = {
-    # Combat — exact phrases, no dangerous substrings
+    # Combat — exact phrases
     'killaura':'KillAura', 'kill aura':'KillAura', 'kill_aura':'KillAura',
     'triggerbot':'TriggerBot', 'trigger bot':'TriggerBot', 'trigger_bot':'TriggerBot',
     'aimbot':'AimBot', 'aim bot':'AimBot', 'aim_bot':'AimBot',
@@ -252,10 +258,30 @@ KW_LABELS = {
     'force field':'ForceField', 'forcefield':'ForceField',
     'multi aura':'MultiAura', 'multiaura':'MultiAura',
     'auto click':'AutoClick', 'autoclick':'AutoClick', 'autoclicker':'AutoClick',
-    'click simulation':'AutoClick', 'fake punch':'AutoClick',
+    'click simulation':'AutoClick',
+    'fake punch':'AutoClick',
+    'attack delay':'AutoClick',
+    'hit delay':'AutoClick',
+    'break chance':'AutoClick',
+    'break delay':'AutoClick',
+    'place chance':'AutoClick',
+    'place delay':'AutoClick',
+    'stop on kill':'AutoClick',
+    'switch delay':'AutoClick',
+    'activate key':'HackModule',
+    'vertical speed':'HackModule',
+    'particle chance':'HackModule',
+    'invokodoattack':'HackModule', 'invokedoattack':'HackModule',
+    'invokedoitemuse':'HackModule',
+    'onblockbreaking':'HackModule',
+    'blockbreakingcooldown':'HackModule',
+    'setitemusecooldown':'HackModule',
     'reach module':'Reach', 'reachmod':'Reach', 'reach hack':'Reach',
     'velocity hack':'Velocity', 'velocityhack':'Velocity', 'velocity module':'Velocity',
     'anti-attack':'AntiAttack', 'anti attack':'AntiAttack',
+    # Patterns (class names)
+    'clientplayerinteractionmanageraccessor':'Reach',
+    'clientplayerinteractionmanagermixin':'Reach',
     # Movement — exact phrases only (no substrings)
     'bhop':'BHop', 'bunny hop':'BunnyHop', 'bunnyhop':'BunnyHop',
     'no fall':'NoFall', 'nofall module':'NoFall',
@@ -298,17 +324,24 @@ KW_LABELS = {
 }
 
 BYPASS_PATTERNS = {
-    # Only patterns that are 100% malicious — no legitimate mod uses these
-    'discord.com/api/webhooks':  'Sends data to Discord webhook',
-    'replace mod':               'Replaces itself with another mod (ReplaceMod)',
-    'replace url':               'Downloads & replaces files from internet',
-    'authorized user launched':  'Known cheat client authorization string',
-    'unauthorized user tried':   'Known cheat client authorization string',
-    'powershell -command':       'Executes PowerShell commands on your PC',
-    'powershell -executionpolicy':'Executes PowerShell commands on your PC',
-    'runtime.getruntime().exec': 'Executes system shell commands',
-    'cmd /c ':                   'Executes CMD commands on your PC',
+    # 100% malicious strings
+    'discord.com/api/webhooks':       'Sends data to Discord webhook',
+    'replace mod':                    'Fake mod identity — hides as legit mod',
+    'replace url':                    'HTTP file download — fetches files at runtime',
+    'authorized user launched':       'Known cheat client auth string',
+    'unauthorized user tried':        'Known cheat client auth string',
+    'powershell -command':            'Executes PowerShell commands',
+    'powershell -executionpolicy':    'Executes PowerShell commands',
+    'runtime.getruntime().exec':      'Executes system shell commands',
+    'cmd /c ':                        'Executes CMD commands',
+    # HTTP download / file write
+    'setrequestmethod':               'HTTP file download — opens network connection',
+    'setdooutput':                    'HTTP file download — fetches remote files',
+    'getoutputstream':                'HTTP file download — writes fetched data',
 }
+
+# Class name patterns (empty — too many false positives with legit mods)
+EVIL_CLASS_PATTERNS = []
 
 def print_class(fc, indent="  "):
     name = fc['name'].replace('/','.')
